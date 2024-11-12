@@ -1,44 +1,255 @@
+<!-- public/index.html -->
+
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Chat App</title>
+  <meta charset="UTF-8">
+  <title>Personal Chat App</title>
   <style>
-    /* Basic styling */
-    body { font-family: Arial, sans-serif; }
-    #messages { list-style-type: none; padding: 0; }
-    #messages li { padding: 5px 10px; }
-    #form { display: flex; }
-    #input { flex: 1; padding: 10px; }
-    #button { padding: 10px; }
+    /* Basic styling for the chat app */
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f2f2f2;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    #chat-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-width: 600px;
+      margin: auto;
+      width: 100%;
+      background-color: #fff;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+
+    #messages {
+      list-style-type: none;
+      margin: 0;
+      padding: 10px;
+      flex: 1;
+      overflow-y: auto;
+      border-bottom: 1px solid #ddd;
+    }
+
+    #messages li {
+      padding: 5px 10px;
+      margin-bottom: 10px;
+      border-radius: 4px;
+      background-color: #f1f1f1;
+      position: relative;
+    }
+
+    #messages li.self {
+      background-color: #d1ffd1;
+      align-self: flex-end;
+    }
+
+    #messages li .meta {
+      font-size: 0.8em;
+      color: #555;
+      margin-bottom: 3px;
+    }
+
+    #form {
+      display: flex;
+      padding: 10px;
+      background-color: #fafafa;
+    }
+
+    #input {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      margin-right: 10px;
+      font-size: 1em;
+    }
+
+    #button {
+      padding: 10px 20px;
+      border: none;
+      background-color: #28a745;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1em;
+    }
+
+    #button:hover {
+      background-color: #218838;
+    }
+
+    /* Modal styling */
+    #username-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #username-modal-content {
+      background-color: #fff;
+      padding: 20px 30px;
+      border-radius: 5px;
+      text-align: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    #username-modal input {
+      width: 80%;
+      padding: 10px;
+      margin-top: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1em;
+    }
+
+    #username-modal button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      border: none;
+      background-color: #007bff;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1em;
+    }
+
+    #username-modal button:hover {
+      background-color: #0069d9;
+    }
   </style>
 </head>
 <body>
-  <ul id="messages"></ul>
-  <form id="form" action="">
-    <input id="input" autocomplete="off" /><button id="button">Send</button>
-  </form>
+  <div id="chat-container">
+    <ul id="messages"></ul>
+    <form id="form" action="">
+      <input id="input" autocomplete="off" placeholder="Type your message here..." /><button id="button">Send</button>
+    </form>
+  </div>
 
+  <!-- Username Modal -->
+  <div id="username-modal">
+    <div id="username-modal-content">
+      <h2>Welcome to the Chat!</h2>
+      <p>Please enter your name:</p>
+      <input type="text" id="username-input" placeholder="Your name" />
+      <br>
+      <button id="username-submit">Join Chat</button>
+    </div>
+  </div>
+
+  <!-- Socket.io -->
   <script src="/socket.io/socket.io.js"></script>
   <script>
+    // Initialize Socket.io
     const socket = io();
 
+    // DOM elements
     const form = document.getElementById('form');
     const input = document.getElementById('input');
     const messages = document.getElementById('messages');
 
+    const usernameModal = document.getElementById('username-modal');
+    const usernameInput = document.getElementById('username-input');
+    const usernameSubmit = document.getElementById('username-submit');
+
+    let myUsername = '';
+
+    // Function to format timestamp
+    function formatTimestamp(timestamp) {
+      const date = new Date(timestamp);
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    // Handle username submission
+    usernameSubmit.addEventListener('click', () => {
+      const enteredName = usernameInput.value.trim();
+      if (enteredName) {
+        myUsername = enteredName;
+        socket.emit('set username', myUsername);
+        usernameModal.style.display = 'none';
+        addSystemMessage(`You have joined the chat as "${myUsername}"`);
+      } else {
+        alert('Please enter a valid name.');
+      }
+    });
+
+    // Handle form submission
     form.addEventListener('submit', function(e) {
-      e.preventDefault();
+      e.preventDefault(); // Prevent page reload
       if (input.value) {
+        // Emit the chat message to the server
         socket.emit('chat message', input.value);
+
+        // Optionally, display the message in your own chat window
+        const item = document.createElement('li');
+        item.classList.add('self');
+        item.innerHTML = `
+          <div class="meta">You <span style="float:right; font-size:0.8em; color:#555;">${formatTimestamp(new Date())}</span></div>
+          <div>${input.value}</div>
+        `;
+        messages.appendChild(item);
+        window.scrollTo(0, document.body.scrollHeight);
+
+        // Clear the input field
         input.value = '';
       }
     });
 
-    socket.on('chat message', function(msg) {
+    // Listen for chat messages from the server
+    socket.on('chat message', function(msgData) {
+      // Avoid duplicating your own messages if you choose to display them client-side
+      if (msgData.username !== myUsername) {
+        const item = document.createElement('li');
+        item.innerHTML = `
+          <div class="meta">${msgData.username} <span style="float:right; font-size:0.8em; color:#555;">${formatTimestamp(msgData.timestamp)}</span></div>
+          <div>${msgData.message}</div>
+        `;
+        messages.appendChild(item);
+        window.scrollTo(0, document.body.scrollHeight);
+      }
+    });
+
+    // Listen for user joined notifications
+    socket.on('user joined', function(notification) {
+      addSystemMessage(notification);
+    });
+
+    // Listen for user left notifications
+    socket.on('user left', function(notification) {
+      addSystemMessage(notification);
+    });
+
+    // Function to add system messages
+    function addSystemMessage(message) {
       const item = document.createElement('li');
-      item.textContent = msg;
+      item.style.textAlign = 'center';
+      item.style.color = '#555';
+      item.style.fontStyle = 'italic';
+      item.textContent = message;
       messages.appendChild(item);
       window.scrollTo(0, document.body.scrollHeight);
+    }
+
+    // Optional: Allow pressing Enter to submit username
+    usernameInput.addEventListener('keyup', function(event) {
+      if (event.key === 'Enter') {
+        usernameSubmit.click();
+      }
     });
   </script>
 </body>
